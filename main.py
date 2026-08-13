@@ -4,11 +4,50 @@ import os
 import re
 import uuid
 import calendar
+import random
+import threading
+import time
+import requests
 from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "cambia-esta-clave-en-produccion"
+
+# ---------- Keep-alive en segundo plano ----------
+# Hace un GET a la URL indicada en un intervalo aleatorio (no fijo)
+# entre KEEP_ALIVE_MIN_SEG y KEEP_ALIVE_MAX_SEG segundos, pensado para
+# evitar que Render duerma la instancia por inactividad.
+KEEP_ALIVE_URL = "https://whiteblossomstudio.onrender.com"
+KEEP_ALIVE_MIN_SEG = 45
+KEEP_ALIVE_MAX_SEG = 75
+
+
+def _keep_alive_loop():
+    while True:
+        espera = random.uniform(KEEP_ALIVE_MIN_SEG, KEEP_ALIVE_MAX_SEG)
+        time.sleep(espera)
+        try:
+            resp = requests.get(KEEP_ALIVE_URL, timeout=10)
+            app.logger.info(
+                f"[keep-alive] {KEEP_ALIVE_URL} -> {resp.status_code} "
+                f"(siguiente intento en {espera:.1f}s)"
+            )
+        except requests.RequestException as e:
+            app.logger.warning(f"[keep-alive] error al pingear {KEEP_ALIVE_URL}: {e}")
+
+
+def iniciar_keep_alive():
+    hilo = threading.Thread(target=_keep_alive_loop, daemon=True)
+    hilo.start()
+
+
+# Evita duplicar el hilo cuando Flask corre con el reloader de debug
+# (que lanza el proceso dos veces). En producción (WSGI/gunicorn) esta
+# variable de entorno no existe, así que se inicia normalmente.
+if os.environ.get("WERKZEUG_RUN_MAIN") != "true" or app.debug is False:
+    iniciar_keep_alive()
+
 
 BASE_DIR = os.path.dirname(__file__)
 USERS_FILE = os.path.join(BASE_DIR, "users.json")
@@ -645,4 +684,4 @@ def perfil():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False, host="0.0.0.0", port= 5000)
