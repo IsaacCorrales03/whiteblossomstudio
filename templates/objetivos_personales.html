@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - Objetivos personales</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'personales' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Mis objetivos personales</h1>
+        <p>Solo tú puedes ver y editar esta lista</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        {% for i in items %}
+        <div class="personal-item">
+          <form method="POST" action="{{ url_for('toggle_objetivo_personal', item_id=i.id) }}">
+            <button type="submit" class="check-btn">
+              <span class="check {{ 'checked' if i.hecho }}">{% if i.hecho %}<i class="ti ti-check"></i>{% endif %}</span>
+            </button>
+          </form>
+          <div class="txt {{ 'strike' if i.hecho }}">{{ i.texto }}</div>
+          <form method="POST" action="{{ url_for('eliminar_objetivo_personal', item_id=i.id) }}">
+            <button type="submit" class="delete-btn"><i class="ti ti-trash"></i></button>
+          </form>
+        </div>
+        {% else %}
+        <div class="empty-state">Todavía no tienes objetivos personales. Añade uno abajo.</div>
+        {% endfor %}
+        <form method="POST" class="add-row">
+          <input type="text" name="texto" placeholder="Añadir un recordatorio u objetivo personal" required>
+          <button type="submit" class="btn ghost" style="padding:9px 12px;"><i class="ti ti-plus"></i></button>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

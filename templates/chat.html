@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Ops - Chat de equipo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'chat' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main main-chat">
+    <div class="topbar">
+      <div>
+        <h1>Chat de equipo</h1>
+        <p>Escribe <strong>@nombre</strong> para mencionar a alguien del equipo</p>
+      </div>
+    </div>
+
+    <div class="panel chat-panel">
+      <div class="chat-messages" id="chat-messages">
+        {% for m in mensajes %}
+        <div class="msg {{ 'own' if m.autor == nombre }}{{ ' mention-hit' if nombre in (m.menciones or []) }}" data-id="{{ m.id }}">
+          {% if m.foto %}
+            <img class="msg-av" src="{{ url_for('static', filename='uploads/' ~ m.foto) }}" alt="">
+          {% else %}
+            <div class="msg-av-fallback">{{ m.autor.split(' ')|map('first')|join('') | upper }}</div>
+          {% endif %}
+          <div class="msg-body">
+            <div class="msg-meta"><span class="msg-autor">{{ m.autor }}</span><span class="msg-hora">{{ m.hora }}</span></div>
+            <div class="msg-texto"></div>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state" id="chat-empty">Todavía no hay mensajes. ¡Sé el primero en escribir!</div>
+        {% endfor %}
+      </div>
+
+      <form id="chat-form" class="chat-input-row">
+        <div class="chat-input-wrap">
+          <input type="text" id="chat-texto" placeholder="Escribe un mensaje... usa @ para mencionar" autocomplete="off" required maxlength="2000">
+          <div class="mention-popup" id="mention-popup"></div>
+        </div>
+        <button type="submit" class="btn"><i class="ti ti-send"></i></button>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script>
+const NOMBRE_ACTUAL = {{ nombre|tojson }};
+const USUARIOS = {{ usuarios|tojson }};
+const contenedor = document.getElementById('chat-messages');
+const form = document.getElementById('chat-form');
+const input = document.getElementById('chat-texto');
+const popup = document.getElementById('mention-popup');
+let ultimoId = 0;
+
+document.querySelectorAll('.msg').forEach(el => {
+  const id = parseInt(el.dataset.id, 10);
+  if (id > ultimoId) ultimoId = id;
+});
+
+// ---------- Render de texto con menciones @nombre resaltadas ----------
+function escaparHtml(texto) {
+  const d = document.createElement('div');
+  d.textContent = texto;
+  return d.innerHTML;
+}
+
+function renderTextoConMenciones(texto) {
+  const escapado = escaparHtml(texto);
+  // Reemplaza @Nombre (nombres reales del equipo) por un span resaltado
+  const patron = new RegExp('@(' + USUARIOS.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')(?![\\w])', 'gi');
+  return escapado.replace(patron, (match, nom) => {
+    const esYo = nom.toLowerCase() === NOMBRE_ACTUAL.toLowerCase();
+    return `<span class="mention${esYo ? ' mention-self' : ''}" data-user="${escaparHtml(nom)}">@${escaparHtml(nom)}</span>`;
+  });
+}
+
+function pintarMensajesIniciales() {
+  {% for m in mensajes %}
+  {
+    const el = document.querySelector('.msg[data-id="{{ m.id }}"] .msg-texto');
+    if (el) el.innerHTML = renderTextoConMenciones({{ m.texto|tojson }});
+  }
+  {% endfor %}
+}
+pintarMensajesIniciales();
+
+function renderMensaje(m) {
+  const esPropio = m.autor === NOMBRE_ACTUAL;
+  const meMencionan = (m.menciones || []).some(n => n.toLowerCase() === NOMBRE_ACTUAL.toLowerCase());
+  const div = document.createElement('div');
+  div.className = 'msg' + (esPropio ? ' own' : '') + (meMencionan ? ' mention-hit' : '');
+  div.dataset.id = m.id;
+
+  const avatarHtml = m.foto
+    ? `<img class="msg-av" src="/static/uploads/${m.foto}" alt="">`
+    : `<div class="msg-av-fallback">${escaparHtml(m.autor.split(' ').map(p => p[0]).join('').toUpperCase())}</div>`;
+
+  div.innerHTML = `
+    ${avatarHtml}
+    <div class="msg-body">
+      <div class="msg-meta"><span class="msg-autor">${escaparHtml(m.autor)}</span><span class="msg-hora">${escaparHtml(m.hora)}</span></div>
+      <div class="msg-texto"></div>
+    </div>
+  `;
+  div.querySelector('.msg-texto').innerHTML = renderTextoConMenciones(m.texto);
+  return div;
+}
+
+function scrollAbajo() {
+  contenedor.scrollTop = contenedor.scrollHeight;
+}
+
+// Auto scroll hasta el mensaje que me menciona (con un breve resalte)
+function scrollAMencion(el) {
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('mention-flash');
+  setTimeout(() => el.classList.remove('mention-flash'), 1600);
+}
+
+scrollAbajo();
+
+// Si al entrar hay algún mensaje reciente que me menciona, salto directo a él
+(function irAUltimaMencion() {
+  const hits = document.querySelectorAll('.msg.mention-hit');
+  if (hits.length) scrollAMencion(hits[hits.length - 1]);
+})();
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const texto = input.value.trim();
+  if (!texto) return;
+  input.value = '';
+  ocultarPopup();
+
+  const resp = await fetch('/chat/enviar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'texto=' + encodeURIComponent(texto),
+  });
+  if (resp.ok) {
+    const m = await resp.json();
+    const vacio = document.getElementById('chat-empty');
+    if (vacio) vacio.remove();
+    contenedor.appendChild(renderMensaje(m));
+    ultimoId = m.id;
+    scrollAbajo();
+  }
+});
+
+async function sondear() {
+  try {
+    const resp = await fetch('/chat/mensajes?after=' + ultimoId);
+    if (resp.ok) {
+      const nuevos = await resp.json();
+      if (nuevos.length) {
+        const vacio = document.getElementById('chat-empty');
+        if (vacio) vacio.remove();
+        let elMencion = null;
+        nuevos.forEach(m => {
+          const el = renderMensaje(m);
+          contenedor.appendChild(el);
+          ultimoId = m.id;
+          if ((m.menciones || []).some(n => n.toLowerCase() === NOMBRE_ACTUAL.toLowerCase())) {
+            elMencion = el;
+          }
+        });
+        if (elMencion) {
+          scrollAMencion(elMencion);
+        } else {
+          scrollAbajo();
+        }
+        fetch('/chat/marcar-leido', { method: 'POST' });
+      }
+    }
+  } catch (err) {
+    // silencioso: se reintenta en el siguiente ciclo
+  }
+}
+
+setInterval(sondear, 2500);
+
+// ---------- Autocompletado de @menciones ----------
+function posicionCaret() {
+  return input.selectionStart;
+}
+
+function palabraActual() {
+  const pos = posicionCaret();
+  const antes = input.value.slice(0, pos);
+  const match = antes.match(/@([\p{L}\d_]*)$/u);
+  return match ? match[1] : null;
+}
+
+function ocultarPopup() {
+  popup.style.display = 'none';
+  popup.innerHTML = '';
+}
+
+function mostrarPopup(coincidencias) {
+  if (!coincidencias.length) { ocultarPopup(); return; }
+  popup.innerHTML = coincidencias.map(n =>
+    `<div class="mention-opt" data-nombre="${escaparHtml(n)}">
+       <span class="mention-opt-av">${escaparHtml(n.split(' ').map(p => p[0]).join('').toUpperCase())}</span>
+       <span>${escaparHtml(n)}</span>
+     </div>`
+  ).join('');
+  popup.style.display = 'block';
+}
+
+input.addEventListener('input', () => {
+  const parcial = palabraActual();
+  if (parcial === null) { ocultarPopup(); return; }
+  const coincidencias = USUARIOS.filter(n => n.toLowerCase().startsWith(parcial.toLowerCase()));
+  mostrarPopup(coincidencias.slice(0, 6));
+});
+
+input.addEventListener('blur', () => setTimeout(ocultarPopup, 150));
+
+popup.addEventListener('mousedown', (e) => {
+  const opt = e.target.closest('.mention-opt');
+  if (!opt) return;
+  e.preventDefault();
+  const nombreSel = opt.dataset.nombre;
+  const pos = posicionCaret();
+  const antes = input.value.slice(0, pos).replace(/@([\p{L}\d_]*)$/u, '@' + nombreSel + ' ');
+  const despues = input.value.slice(pos);
+  input.value = antes + despues;
+  input.focus();
+  ocultarPopup();
+});
+
+// Click en una mención dentro de un mensaje: salta al último mensaje de ese autor
+contenedor.addEventListener('click', (e) => {
+  const men = e.target.closest('.mention');
+  if (!men) return;
+  const nombreObjetivo = men.dataset.user;
+  const mensajesDe = Array.from(contenedor.querySelectorAll('.msg')).filter(el => {
+    const autorEl = el.querySelector('.msg-autor');
+    return autorEl && autorEl.textContent === nombreObjetivo;
+  });
+  if (mensajesDe.length) scrollAMencion(mensajesDe[mensajesDe.length - 1]);
+});
+</script>
+</body>
+</html>

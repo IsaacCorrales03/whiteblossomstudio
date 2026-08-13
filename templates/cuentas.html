@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - Cuentas y roles</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'cuentas' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Cuentas y roles</h1>
+        <p>Gestiona quién forma parte del equipo y qué puede hacer</p>
+      </div>
+      <button class="btn" id="btn-nueva-cuenta"><i class="ti ti-user-plus"></i> Nueva cuenta</button>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-ok">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    <div class="panel">
+      <div class="panel-head"><h2>Equipo ({{ usuarios|length }})</h2></div>
+      <div class="panel-body">
+        {% for u in usuarios %}
+        <div class="account-row">
+          <div class="who">
+            {% if u.foto %}
+              <img class="avatar-img" src="{{ url_for('static', filename='uploads/' ~ u.foto) }}" alt="">
+            {% else %}
+              <div class="av">{{ u.nombre.split(' ')|map('first')|join('') | upper }}</div>
+            {% endif %}
+            <div><div class="task-title">{{ u.nombre }}</div><div class="task-desc">{{ 'Tú' if u.nombre == nombre else 'Miembro del equipo' }}</div></div>
+          </div>
+
+          <form method="POST" action="{{ url_for('cuentas_actualizar', nombre_usuario=u.nombre) }}" class="account-form">
+            <select name="rol" class="account-select">
+              {% for r in roles %}
+              <option value="{{ r }}" {{ 'selected' if u.rol == r else '' }}>{{ r }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="puesto" value="{{ u.puesto }}" placeholder="Puesto" class="account-puesto">
+            <button type="submit" class="btn ghost btn-sm"><i class="ti ti-device-floppy"></i></button>
+          </form>
+
+          {% if u.nombre != nombre %}
+          <form method="POST" action="{{ url_for('cuentas_eliminar', nombre_usuario=u.nombre) }}" onsubmit="return confirm('¿Eliminar la cuenta de {{ u.nombre }}?');">
+            <button type="submit" class="btn-icon-danger" title="Eliminar cuenta"><i class="ti ti-trash"></i></button>
+          </form>
+          {% else %}
+          <span class="btn-icon-placeholder"></span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">No hay cuentas registradas.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal nueva cuenta -->
+<div class="modal-overlay" id="modal-cuenta">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2><i class="ti ti-user-plus"></i> Nueva cuenta</h2>
+      <button type="button" id="btn-cerrar-modal"><i class="ti ti-x"></i></button>
+    </div>
+    <form method="POST" action="{{ url_for('cuentas_crear') }}" class="form-grid">
+      <div class="field" style="grid-column:1/-1;">
+        <label for="nombre-nuevo">Nombre</label>
+        <input type="text" id="nombre-nuevo" name="nombre" placeholder="Nombre completo" required>
+      </div>
+      <div class="field">
+        <label for="password-nuevo">Contraseña</label>
+        <input type="password" id="password-nuevo" name="password" placeholder="Mínimo 6 caracteres" required minlength="6">
+      </div>
+      <div class="field">
+        <label for="rol-nuevo">Rol</label>
+        <select id="rol-nuevo" name="rol">
+          {% for r in roles %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
+        <label for="puesto-nuevo">Puesto</label>
+        <input type="text" id="puesto-nuevo" name="puesto" placeholder="Ej. Game Artist">
+      </div>
+      <button type="submit" class="btn" style="grid-column:1/-1;">Crear cuenta</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const modal = document.getElementById('modal-cuenta');
+document.getElementById('btn-nueva-cuenta').addEventListener('click', () => modal.classList.add('open'));
+document.getElementById('btn-cerrar-modal').addEventListener('click', () => modal.classList.remove('open'));
+modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+</script>
+</body>
+</html>

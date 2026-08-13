@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - Tablero</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'tablero' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Bienvenido/a, {{ nombre.split(' ')[0] }}</h1>
+        <p>{{ 'Resumen general de esta semana' if rol in ('Administrador','Administradora') else 'Tus objetivos de esta semana' }}</p>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-ok">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    <div class="cards">
+      <div class="card"><div class="label">Objetivos activos</div><div class="num">{{ activos }}</div></div>
+      <div class="card"><div class="label">Completados</div><div class="num" style="color:var(--success)">{{ completados }}</div></div>
+      <div class="card"><div class="label">Pendientes</div><div class="num accent">{{ pendientes }}</div></div>
+      <div class="card"><div class="label">Atrasados</div><div class="num danger">{{ atrasados }}</div></div>
+    </div>
+
+    {% if reuniones_prox %}
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Próximas reuniones</h2>
+        {% if rol in ('Administrador','Administradora') %}
+        <a href="{{ url_for('calendario_vista') }}" class="sub" style="text-decoration:none;">Ver calendario →</a>
+        {% endif %}
+      </div>
+      <div class="panel-body">
+        {% for r in reuniones_prox %}
+        <div class="row row-meeting">
+          <div class="who">
+            <div class="av"><i class="ti ti-calendar-event"></i></div>
+            <div><div class="task-title">{{ r.titulo }}</div><div class="task-desc">{{ r.participantes|join(', ') if r.participantes else 'Todo el equipo' }}</div></div>
+          </div>
+          <span>{{ r.fecha }} · {{ r.hora }}</span>
+          <span class="badge progreso">Programada</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Últimos objetivos de la semana</h2>
+        <a href="{{ url_for('objetivos_semana') }}" class="sub" style="text-decoration:none;">Ver todos →</a>
+      </div>
+      <div class="panel-body">
+        {% for t in tareas %}
+        <div class="row">
+          <div class="who">
+            <div class="av">{{ t.asignado_a.split(' ')|map('first')|join('') | upper }}</div>
+            <div><div class="task-title">{{ t.titulo }}</div><div class="task-desc">{{ t.asignado_a }}</div></div>
+          </div>
+          <span>Vence {{ t.vence }}</span>
+          <span class="badge {{ t.estado }}">
+            {% if t.estado == 'progreso' %}En progreso
+            {% elif t.estado == 'completado' %}Completado
+            {% elif t.estado == 'atrasado' %}Atrasado
+            {% else %}Sin iniciar{% endif %}
+          </span>
+        </div>
+        {% else %}
+        <div class="empty-state">No hay objetivos registrados todavía.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

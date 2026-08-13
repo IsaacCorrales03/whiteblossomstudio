@@ -1,0 +1,54 @@
+<aside class="sidebar">
+  <div class="brand">White Blossom Studios</div>
+  <nav class="nav">
+    <a href="{{ url_for('menu') }}" class="{{ 'active' if active=='tablero' else '' }}"><i class="ti ti-layout-dashboard"></i> Tablero</a>
+    <a href="{{ url_for('objetivos_semana') }}" class="{{ 'active' if active=='semana' else '' }}"><i class="ti ti-target-arrow"></i> Objetivos de la semana</a>
+    <a href="{{ url_for('objetivos_personales') }}" class="{{ 'active' if active=='personales' else '' }}"><i class="ti ti-checklist"></i> Objetivos personales</a>
+    <a href="{{ url_for('chat') }}" class="{{ 'active' if active=='chat' else '' }} nav-chat-link"><i class="ti ti-message"></i> Chat de equipo <span class="chat-badge" id="chat-badge"></span></a>
+    {% if rol in ("Administrador", "Administradora") %}
+    <a href="{{ url_for('calendario_vista') }}" class="{{ 'active' if active=='calendario' else '' }}"><i class="ti ti-calendar-event"></i> Calendario</a>
+    {% endif %}
+    <a href="{{ url_for('perfil') }}" class="{{ 'active' if active=='perfil' else '' }}"><i class="ti ti-user-circle"></i> Mi perfil</a>
+    {% if rol in ("Administrador", "Administradora") %}
+    <a href="{{ url_for('cuentas_roles') }}" class="{{ 'active' if active=='cuentas' else '' }}"><i class="ti ti-users"></i> Cuentas y roles</a>
+    {% endif %}
+  </nav>
+  <div class="sidebar-foot">
+    {% if foto %}
+      <img class="avatar-img" src="{{ url_for('static', filename='uploads/' ~ foto) }}" alt="Foto de perfil">
+    {% else %}
+      <div class="avatar">{{ nombre.split(' ')|map('first')|join('') | upper }}</div>
+    {% endif %}
+    <div>
+      <p>{{ nombre }}</p>
+      <span>{{ rol }}</span>
+      {% if puesto %}<span class="puesto-tag">{{ puesto }}</span>{% endif %}
+    </div>
+    <a href="{{ url_for('logout') }}" class="logout-link" title="Cerrar sesión"><i class="ti ti-logout"></i></a>
+  </div>
+</aside>
+
+<script>
+(function () {
+  var badge = document.getElementById('chat-badge');
+  var enChat = {{ 'true' if active == 'chat' else 'false' }};
+
+  function actualizarBadge() {
+    fetch('/chat/no-leidos')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var n = data.no_leidos || 0;
+        if (n > 0 && !enChat) {
+          badge.textContent = n > 99 ? '99+' : n;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      })
+      .catch(function () {});
+  }
+
+  actualizarBadge();
+  setInterval(actualizarBadge, 4000);
+})();
+</script>

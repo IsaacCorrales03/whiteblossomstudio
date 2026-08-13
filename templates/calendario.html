@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - Calendario</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'calendario' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Calendario · {{ nombre_mes }} {{ anio }}</h1>
+        <p>Programa reuniones y el equipo las verá en su tablero</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a class="btn ghost" href="{{ url_for('calendario_vista', anio=anio, mes=mes-1) }}"><i class="ti ti-chevron-left"></i></a>
+        <a class="btn ghost" href="{{ url_for('calendario_vista') }}">Hoy</a>
+        <a class="btn ghost" href="{{ url_for('calendario_vista', anio=anio, mes=mes+1) }}"><i class="ti ti-chevron-right"></i></a>
+        <button class="btn" id="btn-nueva-reunion"><i class="ti ti-plus"></i> Nueva reunión</button>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-ok">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    <div class="panel">
+      <div class="calendar-grid calendar-head">
+        <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+      </div>
+      {% for semana in semanas %}
+      <div class="calendar-grid">
+        {% for dia in semana %}
+          {% if dia == 0 %}
+          <div class="cal-day cal-day-empty"></div>
+          {% else %}
+          <div class="cal-day {{ 'cal-day-today' if dia == hoy_dia else '' }}">
+            <span class="cal-day-num">{{ dia }}</span>
+            {% for r in reuniones_por_dia.get(dia, []) %}
+            <div class="cal-event" title="{{ r.nota }}">
+              <span class="cal-event-hora">{{ r.hora }}</span> {{ r.titulo }}
+              <form method="POST" action="{{ url_for('calendario_eliminar', reunion_id=r.id) }}" class="cal-event-del">
+                <button type="submit" title="Eliminar"><i class="ti ti-x"></i></button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Próximas reuniones</h2></div>
+      <div class="panel-body">
+        {% for r in proximas %}
+        <div class="row row-meeting">
+          <div class="who">
+            <div class="av"><i class="ti ti-calendar-event"></i></div>
+            <div><div class="task-title">{{ r.titulo }}</div><div class="task-desc">{{ r.participantes|join(', ') if r.participantes else 'Todo el equipo' }}</div></div>
+          </div>
+          <span>{{ r.fecha }} · {{ r.hora }}</span>
+          <span class="badge progreso">Programada</span>
+        </div>
+        {% else %}
+        <div class="empty-state">No hay reuniones programadas.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal nueva reunión -->
+<div class="modal-overlay" id="modal-reunion">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2><i class="ti ti-calendar-event"></i> Nueva reunión</h2>
+      <button type="button" id="btn-cerrar-modal"><i class="ti ti-x"></i></button>
+    </div>
+    <form method="POST" action="{{ url_for('calendario_crear') }}" class="form-grid">
+      <div class="field" style="grid-column:1/-1;">
+        <label for="titulo">Título</label>
+        <input type="text" id="titulo" name="titulo" placeholder="Revisión semanal de arte" required>
+      </div>
+      <div class="field">
+        <label for="fecha">Fecha</label>
+        <input type="date" id="fecha" name="fecha" required>
+      </div>
+      <div class="field">
+        <label for="hora">Hora</label>
+        <input type="time" id="hora" name="hora" required>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
+        <label>Participantes</label>
+        <div class="checklist">
+          {% for u in usuarios %}
+          <label class="checklist-item">
+            <input type="checkbox" name="participantes" value="{{ u.nombre }}"> {{ u.nombre }}
+          </label>
+          {% endfor %}
+        </div>
+        <span class="hint">Si no marcas a nadie, la verán solo los administradores.</span>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
+        <label for="nota">Nota (opcional)</label>
+        <input type="text" id="nota" name="nota" placeholder="Enlace o agenda breve">
+      </div>
+      <button type="submit" class="btn" style="grid-column:1/-1;">Programar reunión</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const modal = document.getElementById('modal-reunion');
+document.getElementById('btn-nueva-reunion').addEventListener('click', () => modal.classList.add('open'));
+document.getElementById('btn-cerrar-modal').addEventListener('click', () => modal.classList.remove('open'));
+modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+</script>
+</body>
+</html>

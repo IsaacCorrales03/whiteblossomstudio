@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - Objetivos de la semana</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'semana' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Objetivos de la semana</h1>
+        <p>Todo lo asignado al equipo</p>
+      </div>
+      {% if rol in ("Administrador", "Administradora") %}
+      <button class="btn" onclick="document.getElementById('form-nuevo').classList.toggle('open')">
+        <i class="ti ti-plus"></i> Asignar objetivo
+      </button>
+      {% endif %}
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-ok">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    {% if rol in ("Administrador", "Administradora") %}
+    <div id="form-nuevo" class="panel form-panel">
+      <div class="panel-head"><h2>Nuevo objetivo</h2></div>
+      <form method="POST" class="panel-body form-grid">
+        <div class="field">
+          <label>Título</label>
+          <input type="text" name="titulo" required>
+        </div>
+        <div class="field">
+          <label>Asignar a</label>
+          <select name="asignado_a" required>
+            {% for u in usuarios %}
+            <option value="{{ u.nombre }}">{{ u.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Fecha límite</label>
+          <input type="date" name="vence" required>
+        </div>
+        <div class="field" style="grid-column:1 / -1;">
+          <label>Descripción</label>
+          <input type="text" name="descripcion" placeholder="Detalles del objetivo">
+        </div>
+        <button type="submit" class="btn" style="grid-column:1 / -1;">Guardar objetivo</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel-body">
+        {% for t in tareas %}
+        <div class="row">
+          <div class="who">
+            <div class="av">{{ t.asignado_a.split(' ')|map('first')|join('') | upper }}</div>
+            <div><div class="task-title">{{ t.titulo }}</div><div class="task-desc">{{ t.asignado_a }}{% if t.descripcion %} · {{ t.descripcion }}{% endif %}</div></div>
+          </div>
+          <span>Vence {{ t.vence }}</span>
+          <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}">
+            <select name="estado" class="badge-select {{ t.estado }}" onchange="this.form.submit()">
+              <option value="pendiente" {{ 'selected' if t.estado=='pendiente' }}>Sin iniciar</option>
+              <option value="progreso" {{ 'selected' if t.estado=='progreso' }}>En progreso</option>
+              <option value="completado" {{ 'selected' if t.estado=='completado' }}>Completado</option>
+              <option value="atrasado" {{ 'selected' if t.estado=='atrasado' }}>Atrasado</option>
+            </select>
+          </form>
+        </div>
+        {% else %}
+        <div class="empty-state">No hay objetivos registrados todavía.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

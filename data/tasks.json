@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "titulo": "Animar la escena del prólogo",
+    "descripcion": "Necesito que logres hacer la animación de la balsa en el oceano, con la tormenta de fondo",
+    "asignado_a": "Francis",
+    "vence": "2026-10-01",
+    "estado": "pendiente"
+  },
+  {
+    "id": 2,
+    "titulo": "Hacer los assets del cesped de la granja",
+    "descripcion": "Necesito que hagas los 9 tiles del cesped de la granja",
+    "asignado_a": "Dylan",
+    "vence": "2026-10-01",
+    "estado": "pendiente"
+  }
+]

@@ -1,0 +1,45 @@
+[
+  {
+    "nombre": "Francis",
+    "password": "francis123",
+    "rol": "Colaborador",
+    "puesto": "Cinematic Artist"
+  },
+  {
+    "nombre": "Dylan",
+    "password": "dylan123",
+    "rol": "Colaborador",
+    "puesto": "Game Artist"
+  },
+  {
+    "nombre": "Ismael",
+    "password": "ismael123",
+    "rol": "Colaborador",
+    "puesto": "Game Designer"
+  },
+  {
+    "nombre": "NaturalCherry",
+    "password": "cherry123",
+    "rol": "Administrador",
+    "puesto": "Game Director & Developer",
+    "foto": "329e964e254a419ba8863cfa0299477b.jpg"
+  },
+  {
+    "nombre": "Boniax",
+    "password": "boniax123",
+    "rol": "Administrador",
+    "puesto": "Game Director & Developer"
+  },
+  {
+    "nombre": "Oseas",
+    "password": "oseas123",
+    "rol": "Colaborador",
+    "puesto": "Compositor"
+  },
+  {
+    "nombre": "Alison",
+    "password": "alison123",
+    "rol": "Administradora",
+    "puesto": "Art Director"
+  }
+]

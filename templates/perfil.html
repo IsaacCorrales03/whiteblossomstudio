@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - Mi perfil</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'perfil' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Mi perfil</h1>
+        <p>Actualiza tu foto, nombre y contraseña</p>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-ok">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    <div class="panel" style="max-width:520px;">
+      <div class="panel-body" style="padding:24px 24px 28px;">
+        <form method="POST" enctype="multipart/form-data">
+          <div class="profile-photo-row">
+            {% if foto %}
+              <img class="avatar-img-lg" src="{{ url_for('static', filename='uploads/' ~ foto) }}" alt="Foto de perfil">
+            {% else %}
+              <div class="avatar-lg">{{ nombre.split(' ')|map('first')|join('') | upper }}</div>
+            {% endif %}
+            <div>
+              <label class="field-label">Foto de perfil</label>
+              <input type="file" name="foto" accept=".png,.jpg,.jpeg,.webp">
+              <p class="hint">PNG, JPG o WEBP</p>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:22px;">
+            <label>Nombre</label>
+            <input type="text" name="nombre" value="{{ nombre }}">
+          </div>
+
+          <div class="field">
+            <label>Puesto</label>
+            <input type="text" value="{{ puesto }}" disabled>
+            <p class="hint">Solo un administrador puede cambiar el puesto</p>
+          </div>
+
+          <div class="field">
+            <label>Nueva contraseña</label>
+            <input type="password" name="password" placeholder="Dejar en blanco para no cambiarla">
+          </div>
+          <div class="field">
+            <label>Confirmar nueva contraseña</label>
+            <input type="password" name="confirmar_password" placeholder="Repite la nueva contraseña">
+          </div>
+
+          <button type="submit" class="btn" style="width:100%; justify-content:center; margin-top:8px;">Guardar cambios</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
