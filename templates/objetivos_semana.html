@@ -63,21 +63,19 @@
     <div class="panel">
       <div class="panel-body">
         {% for t in tareas %}
-        <div class="row">
+        <a href="{{ url_for('objetivo_detalle', tarea_id=t.id) }}" class="row row-link">
           <div class="who">
             <div class="av">{{ t.asignado_a.split(' ')|map('first')|join('') | upper }}</div>
             <div><div class="task-title">{{ t.titulo }}</div><div class="task-desc">{{ t.asignado_a }}{% if t.descripcion %} · {{ t.descripcion }}{% endif %}</div></div>
           </div>
           <span>Vence {{ t.vence }}</span>
-          <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}">
-            <select name="estado" class="badge-select {{ t.estado }}" onchange="this.form.submit()">
-              <option value="pendiente" {{ 'selected' if t.estado=='pendiente' }}>Sin iniciar</option>
-              <option value="progreso" {{ 'selected' if t.estado=='progreso' }}>En progreso</option>
-              <option value="completado" {{ 'selected' if t.estado=='completado' }}>Completado</option>
-              <option value="atrasado" {{ 'selected' if t.estado=='atrasado' }}>Atrasado</option>
-            </select>
-          </form>
-        </div>
+          <span class="badge {{ t.estado }}">
+            {% if t.estado == 'progreso' %}En progreso
+            {% elif t.estado == 'completado' %}Completado
+            {% elif t.estado == 'atrasado' %}Atrasado
+            {% else %}Sin iniciar{% endif %}
+          </span>
+        </a>
         {% else %}
         <div class="empty-state">No hay objetivos registrados todavía.</div>
         {% endfor %}

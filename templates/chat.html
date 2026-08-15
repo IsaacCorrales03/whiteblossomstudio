@@ -33,7 +33,10 @@
           {% endif %}
           <div class="msg-body">
             <div class="msg-meta"><span class="msg-autor">{{ m.autor }}</span><span class="msg-hora">{{ m.hora }}</span></div>
-            <div class="msg-texto"></div>
+            <div class="msg-texto" style="{{ 'display:none' if not m.texto }}"></div>
+            {% if m.imagen %}
+            <img class="msg-imagen" src="{{ url_for('static', filename='uploads/' ~ m.imagen) }}" alt="Imagen enviada" onclick="window.open(this.src, '_blank')">
+            {% endif %}
           </div>
         </div>
         {% else %}
@@ -41,9 +44,19 @@
         {% endfor %}
       </div>
 
+      <div class="chat-image-preview" id="chat-image-preview">
+        <img id="chat-image-preview-img" src="" alt="">
+        <span id="chat-image-preview-name" style="font-size:12.5px; color:var(--muted); flex:1;"></span>
+        <button type="button" id="chat-image-remove"><i class="ti ti-x"></i></button>
+      </div>
+
       <form id="chat-form" class="chat-input-row">
+        <button type="button" class="chat-attach-btn" id="chat-attach-btn" title="Adjuntar imagen">
+          <i class="ti ti-photo"></i>
+        </button>
+        <input type="file" id="chat-imagen-input" accept=".png,.jpg,.jpeg,.webp" hidden>
         <div class="chat-input-wrap">
-          <input type="text" id="chat-texto" placeholder="Escribe un mensaje... usa @ para mencionar" autocomplete="off" required maxlength="2000">
+          <input type="text" id="chat-texto" placeholder="Escribe un mensaje... usa @ para mencionar" autocomplete="off" maxlength="2000">
           <div class="mention-popup" id="mention-popup"></div>
         </div>
         <button type="submit" class="btn"><i class="ti ti-send"></i></button>
@@ -59,7 +72,33 @@ const contenedor = document.getElementById('chat-messages');
 const form = document.getElementById('chat-form');
 const input = document.getElementById('chat-texto');
 const popup = document.getElementById('mention-popup');
+const attachBtn = document.getElementById('chat-attach-btn');
+const imagenInput = document.getElementById('chat-imagen-input');
+const imagenPreview = document.getElementById('chat-image-preview');
+const imagenPreviewImg = document.getElementById('chat-image-preview-img');
+const imagenPreviewName = document.getElementById('chat-image-preview-name');
+const imagenRemoveBtn = document.getElementById('chat-image-remove');
 let ultimoId = 0;
+
+// ---------- Adjuntar imagen ----------
+attachBtn.addEventListener('click', () => imagenInput.click());
+
+imagenInput.addEventListener('change', () => {
+  const archivo = imagenInput.files[0];
+  if (!archivo) { limpiarImagen(); return; }
+  imagenPreviewImg.src = URL.createObjectURL(archivo);
+  imagenPreviewName.textContent = archivo.name;
+  imagenPreview.classList.add('show');
+  attachBtn.classList.add('has-image');
+});
+
+imagenRemoveBtn.addEventListener('click', limpiarImagen);
+
+function limpiarImagen() {
+  imagenInput.value = '';
+  imagenPreview.classList.remove('show');
+  attachBtn.classList.remove('has-image');
+}
 
 document.querySelectorAll('.msg').forEach(el => {
   const id = parseInt(el.dataset.id, 10);
@@ -104,11 +143,16 @@ function renderMensaje(m) {
     ? `<img class="msg-av" src="/static/uploads/${m.foto}" alt="">`
     : `<div class="msg-av-fallback">${escaparHtml(m.autor.split(' ').map(p => p[0]).join('').toUpperCase())}</div>`;
 
+  const imagenHtml = m.imagen
+    ? `<img class="msg-imagen" src="/static/uploads/${m.imagen}" alt="Imagen enviada" onclick="window.open(this.src, '_blank')">`
+    : '';
+
   div.innerHTML = `
     ${avatarHtml}
     <div class="msg-body">
       <div class="msg-meta"><span class="msg-autor">${escaparHtml(m.autor)}</span><span class="msg-hora">${escaparHtml(m.hora)}</span></div>
-      <div class="msg-texto"></div>
+      <div class="msg-texto" style="${m.texto ? '' : 'display:none'}"></div>
+      ${imagenHtml}
     </div>
   `;
   div.querySelector('.msg-texto').innerHTML = renderTextoConMenciones(m.texto);
@@ -137,14 +181,20 @@ scrollAbajo();
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const texto = input.value.trim();
-  if (!texto) return;
+  const archivoImagen = imagenInput.files[0] || null;
+  if (!texto && !archivoImagen) return;
+
+  const formData = new FormData();
+  formData.append('texto', texto);
+  if (archivoImagen) formData.append('imagen', archivoImagen);
+
   input.value = '';
+  limpiarImagen();
   ocultarPopup();
 
   const resp = await fetch('/chat/enviar', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'texto=' + encodeURIComponent(texto),
+    body: formData,
   });
   if (resp.ok) {
     const m = await resp.json();

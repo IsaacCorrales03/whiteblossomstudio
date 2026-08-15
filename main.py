@@ -198,6 +198,10 @@ def objetivos_semana():
             "asignado_a": request.form.get("asignado_a", "").strip(),
             "vence": request.form.get("vence", ""),
             "estado": "pendiente",
+            "entregado": False,
+            "fecha_entrega": None,
+            "evidencias": [],
+            "comentarios": [],
         })
         guardar_json(TASKS_FILE, tareas)
         flash("Objetivo asignado")
@@ -239,6 +243,169 @@ def cambiar_estado_tarea(tarea_id):
     tarea["estado"] = nuevo_estado
     guardar_json(TASKS_FILE, tareas)
     return redirect(url_for("objetivos_semana"))
+
+
+def _normalizar_tarea(t):
+    """Asegura que las tareas antiguas tengan los campos nuevos."""
+    t.setdefault("entregado", False)
+    t.setdefault("fecha_entrega", None)
+    t.setdefault("evidencias", [])
+    t.setdefault("comentarios", [])
+    return t
+
+
+def _obtener_tarea_o_none(tarea_id):
+    tareas = cargar_json(TASKS_FILE, [])
+    tarea = next((t for t in tareas if t["id"] == tarea_id), None)
+    if tarea is not None:
+        _normalizar_tarea(tarea)
+    return tareas, tarea
+
+
+def _puede_ver_tarea(tarea):
+    es_admin = session["rol"] in ("Administrador", "Administradora")
+    return es_admin or tarea["asignado_a"] == session["nombre"]
+
+
+# ---------- Detalle de objetivo (estilo Teams: pestañas por objetivo) ----------
+@app.route("/objetivos-semana/<int:tarea_id>")
+def objetivo_detalle(tarea_id):
+    if requiere_login():
+        return redirect(url_for("index"))
+
+    tareas, tarea = _obtener_tarea_o_none(tarea_id)
+    if tarea is None:
+        flash("Ese objetivo ya no existe")
+        return redirect(url_for("objetivos_semana"))
+
+    if not _puede_ver_tarea(tarea):
+        flash("No tienes permiso para ver ese objetivo")
+        return redirect(url_for("objetivos_semana"))
+
+    es_admin = session["rol"] in ("Administrador", "Administradora")
+
+    return render_template(
+        "objetivo_detalle.html",
+        **contexto_usuario(),
+        t=tarea,
+        es_admin=es_admin,
+    )
+
+
+@app.route("/objetivos-semana/<int:tarea_id>/evidencia", methods=["POST"])
+def objetivo_subir_evidencia(tarea_id):
+    if requiere_login():
+        return redirect(url_for("index"))
+
+    tareas, tarea = _obtener_tarea_o_none(tarea_id)
+    if tarea is None:
+        flash("Ese objetivo ya no existe")
+        return redirect(url_for("objetivos_semana"))
+
+    if not _puede_ver_tarea(tarea):
+        flash("No tienes permiso para modificar ese objetivo")
+        return redirect(url_for("objetivos_semana"))
+
+    nota = request.form.get("nota", "").strip()
+    archivos = request.files.getlist("archivos")
+    usuario = obtener_usuario(session["nombre"])
+
+    subidos = 0
+    for archivo in archivos:
+        if archivo and archivo.filename and archivo_permitido(archivo.filename):
+            ext = archivo.filename.rsplit(".", 1)[1].lower()
+            nombre_archivo = f"{uuid.uuid4().hex}.{ext}"
+            archivo.save(os.path.join(UPLOAD_FOLDER, nombre_archivo))
+
+            siguiente_id = (max([e["id"] for e in tarea["evidencias"]]) + 1) if tarea["evidencias"] else 1
+            tarea["evidencias"].append({
+                "id": siguiente_id,
+                "autor": session["nombre"],
+                "foto": usuario.get("foto") if usuario else None,
+                "archivo": nombre_archivo,
+                "nota": nota,
+                "hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            })
+            subidos += 1
+            nota = ""  # solo la primera evidencia del lote lleva la nota escrita
+
+    if subidos == 0 and nota:
+        # Nota sin archivos: se guarda igual como evidencia de solo texto
+        siguiente_id = (max([e["id"] for e in tarea["evidencias"]]) + 1) if tarea["evidencias"] else 1
+        tarea["evidencias"].append({
+            "id": siguiente_id,
+            "autor": session["nombre"],
+            "foto": usuario.get("foto") if usuario else None,
+            "archivo": None,
+            "nota": nota,
+            "hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        })
+        subidos = 1
+
+    if subidos == 0:
+        flash("Adjunta una imagen o escribe una nota para subir evidencia")
+    else:
+        flash("Evidencia agregada")
+
+    guardar_json(TASKS_FILE, tareas)
+    return redirect(url_for("objetivo_detalle", tarea_id=tarea_id))
+
+
+@app.route("/objetivos-semana/<int:tarea_id>/comentario", methods=["POST"])
+def objetivo_comentar(tarea_id):
+    if requiere_login():
+        return redirect(url_for("index"))
+
+    tareas, tarea = _obtener_tarea_o_none(tarea_id)
+    if tarea is None:
+        flash("Ese objetivo ya no existe")
+        return redirect(url_for("objetivos_semana"))
+
+    if not _puede_ver_tarea(tarea):
+        flash("No tienes permiso para comentar en ese objetivo")
+        return redirect(url_for("objetivos_semana"))
+
+    texto = request.form.get("texto", "").strip()
+    if texto:
+        usuario = obtener_usuario(session["nombre"])
+        siguiente_id = (max([c["id"] for c in tarea["comentarios"]]) + 1) if tarea["comentarios"] else 1
+        tarea["comentarios"].append({
+            "id": siguiente_id,
+            "autor": session["nombre"],
+            "foto": usuario.get("foto") if usuario else None,
+            "texto": texto[:2000],
+            "hora": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        })
+        guardar_json(TASKS_FILE, tareas)
+
+    return redirect(url_for("objetivo_detalle", tarea_id=tarea_id) + "#comentarios")
+
+
+@app.route("/objetivos-semana/<int:tarea_id>/entregar", methods=["POST"])
+def objetivo_entregar(tarea_id):
+    if requiere_login():
+        return redirect(url_for("index"))
+
+    tareas, tarea = _obtener_tarea_o_none(tarea_id)
+    if tarea is None:
+        flash("Ese objetivo ya no existe")
+        return redirect(url_for("objetivos_semana"))
+
+    es_admin = session["rol"] in ("Administrador", "Administradora")
+    if not es_admin and tarea["asignado_a"] != session["nombre"]:
+        flash("No tienes permiso para entregar ese objetivo")
+        return redirect(url_for("objetivos_semana"))
+
+    if not tarea["evidencias"]:
+        flash("Sube al menos una evidencia antes de entregar")
+        return redirect(url_for("objetivo_detalle", tarea_id=tarea_id))
+
+    tarea["entregado"] = True
+    tarea["fecha_entrega"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+    tarea["estado"] = "completado"
+    guardar_json(TASKS_FILE, tareas)
+    flash("Objetivo entregado")
+    return redirect(url_for("objetivo_detalle", tarea_id=tarea_id))
 
 
 # ---------- Objetivos personales ----------
@@ -325,7 +492,18 @@ def chat_enviar():
         return jsonify({"error": "no autenticado"}), 401
 
     texto = request.form.get("texto", "").strip()
-    if not texto:
+    imagen_file = request.files.get("imagen")
+
+    imagen_guardada = None
+    if imagen_file and imagen_file.filename:
+        if archivo_permitido(imagen_file.filename):
+            ext = imagen_file.filename.rsplit(".", 1)[1].lower()
+            imagen_guardada = f"{uuid.uuid4().hex}.{ext}"
+            imagen_file.save(os.path.join(UPLOAD_FOLDER, imagen_guardada))
+        else:
+            return jsonify({"error": "formato de imagen no permitido"}), 400
+
+    if not texto and not imagen_guardada:
         return jsonify({"error": "mensaje vacío"}), 400
 
     mensajes = cargar_json(CHAT_FILE, [])
@@ -344,6 +522,7 @@ def chat_enviar():
         "autor": session["nombre"],
         "foto": usuario.get("foto") if usuario else None,
         "texto": texto[:2000],
+        "imagen": imagen_guardada,
         "hora": datetime.now().strftime("%H:%M"),
         "menciones": menciones,
     }

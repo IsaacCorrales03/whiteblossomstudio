@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Blossom Studios - {{ t.titulo }}</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set active = 'semana' %}
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <a href="{{ url_for('objetivos_semana') }}" class="back-link"><i class="ti ti-arrow-left"></i> Objetivos de la semana</a>
+        <h1 style="margin-top:8px;">{{ t.titulo }}</h1>
+        <p>Asignado a {{ t.asignado_a }} · Vence {{ t.vence }}{% if t.descripcion %} · {{ t.descripcion }}{% endif %}</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="badge {{ t.estado }}">
+          {% if t.estado == 'progreso' %}En progreso
+          {% elif t.estado == 'completado' %}Completado
+          {% elif t.estado == 'atrasado' %}Atrasado
+          {% else %}Sin iniciar{% endif %}
+        </span>
+        {% if t.entregado %}
+        <span class="badge completado"><i class="ti ti-circle-check-filled"></i> Entregado {{ t.fecha_entrega }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-ok">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    {% if es_admin %}
+    <div class="panel">
+      <div class="panel-body" style="padding:14px 20px; display:flex; align-items:center; gap:14px;">
+        <span style="font-size:13px; font-weight:700; color:var(--muted);">Estado (control de administración)</span>
+        <form method="POST" action="{{ url_for('cambiar_estado_tarea', tarea_id=t.id) }}">
+          <select name="estado" class="badge-select {{ t.estado }}" onchange="this.form.submit()">
+            <option value="pendiente" {{ 'selected' if t.estado=='pendiente' }}>Sin iniciar</option>
+            <option value="progreso" {{ 'selected' if t.estado=='progreso' }}>En progreso</option>
+            <option value="completado" {{ 'selected' if t.estado=='completado' }}>Completado</option>
+            <option value="atrasado" {{ 'selected' if t.estado=='atrasado' }}>Atrasado</option>
+          </select>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Pestañas estilo Teams -->
+    <div class="task-tabs">
+      <button class="task-tab active" data-tab="evidencia">
+        <i class="ti ti-photo-up"></i> Evidencia <span class="tab-count">{{ t.evidencias|length }}</span>
+      </button>
+      <button class="task-tab" data-tab="comentarios">
+        <i class="ti ti-message-circle"></i> Comentarios <span class="tab-count">{{ t.comentarios|length }}</span>
+      </button>
+    </div>
+
+    <!-- ---------- Pestaña: Evidencia ---------- -->
+    <div class="tab-panel panel" id="tab-evidencia">
+      <div class="panel-body" style="padding:20px;">
+        <form method="POST" action="{{ url_for('objetivo_subir_evidencia', tarea_id=t.id) }}" enctype="multipart/form-data" class="evidence-form" id="evidence-form">
+          <label class="dropzone" id="dropzone" for="archivos-input">
+            <i class="ti ti-cloud-upload"></i>
+            <span>Arrastra fotos aquí o haz clic para elegir archivos</span>
+            <small>png, jpg o webp</small>
+            <input type="file" id="archivos-input" name="archivos" accept=".png,.jpg,.jpeg,.webp" multiple hidden>
+          </label>
+          <div id="preview-lista" class="preview-lista"></div>
+          <textarea name="nota" placeholder="Agrega una nota sobre esta evidencia (opcional)" rows="2" class="evidence-nota"></textarea>
+          <button type="submit" class="btn"><i class="ti ti-upload"></i> Subir evidencia</button>
+        </form>
+
+        <div class="evidence-list">
+          {% for e in t.evidencias|reverse %}
+          <div class="evidence-item">
+            {% if e.foto %}
+              <img class="msg-av" src="{{ url_for('static', filename='uploads/' ~ e.foto) }}" alt="">
+            {% else %}
+              <div class="msg-av-fallback">{{ e.autor.split(' ')|map('first')|join('') | upper }}</div>
+            {% endif %}
+            <div class="evidence-body">
+              <div class="msg-meta"><span class="msg-autor">{{ e.autor }}</span><span class="msg-hora">{{ e.hora }}</span></div>
+              {% if e.archivo %}
+              <a href="{{ url_for('static', filename='uploads/' ~ e.archivo) }}" target="_blank">
+                <img class="evidence-photo" src="{{ url_for('static', filename='uploads/' ~ e.archivo) }}" alt="Evidencia">
+              </a>
+              {% endif %}
+              {% if e.nota %}<div class="evidence-nota-txt">{{ e.nota }}</div>{% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="empty-state">Todavía no hay evidencia subida para este objetivo.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- Pestaña: Comentarios ---------- -->
+    <div class="tab-panel panel" id="tab-comentarios" style="display:none;">
+      <div class="panel-body" style="padding:20px;" id="comentarios">
+        <div class="comment-list">
+          {% for c in t.comentarios %}
+          <div class="evidence-item">
+            {% if c.foto %}
+              <img class="msg-av" src="{{ url_for('static', filename='uploads/' ~ c.foto) }}" alt="">
+            {% else %}
+              <div class="msg-av-fallback">{{ c.autor.split(' ')|map('first')|join('') | upper }}</div>
+            {% endif %}
+            <div class="evidence-body">
+              <div class="msg-meta"><span class="msg-autor">{{ c.autor }}</span><span class="msg-hora">{{ c.hora }}</span></div>
+              <div class="msg-texto" style="border-radius:12px;">{{ c.texto }}</div>
+            </div>
+          </div>
+          {% else %}
+          <div class="empty-state">Sin comentarios todavía.</div>
+          {% endfor %}
+        </div>
+
+        <form method="POST" action="{{ url_for('objetivo_comentar', tarea_id=t.id) }}" class="chat-input-row" style="padding:14px 0 0; border-top:1.5px solid var(--border); margin-top:14px;">
+          <div class="chat-input-wrap">
+            <input type="text" name="texto" placeholder="Escribe un comentario..." autocomplete="off" required maxlength="2000">
+          </div>
+          <button type="submit" class="btn"><i class="ti ti-send"></i></button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ---------- Entregar ---------- -->
+    {% if not t.entregado and (es_admin or t.asignado_a == nombre) %}
+    <div class="panel">
+      <div class="panel-body" style="padding:18px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700; font-size:14px;">¿Ya terminaste este objetivo?</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:2px;">Sube al menos una evidencia y luego entrega el objetivo.</div>
+        </div>
+        <form method="POST" action="{{ url_for('objetivo_entregar', tarea_id=t.id) }}">
+          <button type="submit" class="btn"><i class="ti ti-send-2"></i> Entregar objetivo</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </main>
+</div>
+
+<script>
+// ---------- Pestañas ----------
+document.querySelectorAll('.task-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
+  });
+});
+
+// Si venimos con #comentarios, abrir esa pestaña directamente
+if (window.location.hash === '#comentarios') {
+  document.querySelector('.task-tab[data-tab="comentarios"]').click();
+}
+
+// ---------- Zona de arrastrar y soltar evidencia ----------
+const dropzone = document.getElementById('dropzone');
+const inputArchivos = document.getElementById('archivos-input');
+const previewLista = document.getElementById('preview-lista');
+
+function actualizarPreview() {
+  previewLista.innerHTML = '';
+  const archivos = Array.from(inputArchivos.files || []);
+  archivos.forEach(f => {
+    if (!f.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(f);
+    const img = document.createElement('img');
+    img.src = url;
+    img.className = 'preview-thumb';
+    previewLista.appendChild(img);
+  });
+}
+
+inputArchivos.addEventListener('change', actualizarPreview);
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('dragging'); });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('dragging'); });
+});
+dropzone.addEventListener('drop', (e) => {
+  if (e.dataTransfer.files && e.dataTransfer.files.length) {
+    inputArchivos.files = e.dataTransfer.files;
+    actualizarPreview();
+  }
+});
+</script>
+</body>
+</html>

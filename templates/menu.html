@@ -63,7 +63,7 @@
       </div>
       <div class="panel-body">
         {% for t in tareas %}
-        <div class="row">
+        <a href="{{ url_for('objetivo_detalle', tarea_id=t.id) }}" class="row row-link">
           <div class="who">
             <div class="av">{{ t.asignado_a.split(' ')|map('first')|join('') | upper }}</div>
             <div><div class="task-title">{{ t.titulo }}</div><div class="task-desc">{{ t.asignado_a }}</div></div>
@@ -75,7 +75,7 @@
             {% elif t.estado == 'atrasado' %}Atrasado
             {% else %}Sin iniciar{% endif %}
           </span>
-        </div>
+        </a>
         {% else %}
         <div class="empty-state">No hay objetivos registrados todavía.</div>
         {% endfor %}
